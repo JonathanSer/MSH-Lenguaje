@@ -426,7 +426,7 @@ public class Interfaz extends JFrame {
 
     private boolean esReservada(Token.Tipo tipo) {
         return switch (tipo) {
-            case OBI, ANAKI, PADME, IMPRIMIR -> true;
+            case OBI, ANAKI, PADME, IMPRIMIR,ASIGNAR,SUMA,RESTA,MULT,DIV,CONCAT,LPAREN,RPAREN,PUNTO_COMA -> true;
             default -> false;
         };
     }
