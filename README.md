@@ -255,3 +255,5 @@ La interfaz cuenta con:
 - **Consola de salida** — fondo oscuro con texto verde, muestra resultados y errores
 - **Botón Limpiar consola** — limpia la salida anterior
 - **Botón Cargar ejemplo** — inserta un programa de ejemplo para probar el lenguaje
+
+  _______________________________________________________________________________________
