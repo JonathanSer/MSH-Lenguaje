@@ -256,4 +256,4 @@ La interfaz cuenta con:
 - **Botón Limpiar consola** — limpia la salida anterior
 - **Botón Cargar ejemplo** — inserta un programa de ejemplo para probar el lenguaje
 
-  _______________________________________________________________________________________
+
