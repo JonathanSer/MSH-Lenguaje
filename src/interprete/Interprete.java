@@ -13,17 +13,25 @@ import java.util.*;
 
 public class Interprete {
 
-    private final Map<String, Object> variables = new HashMap<>();
-    private final Map<String, String> tiposVar  = new HashMap<>();
+    private final Map<String, Object> variables    = new HashMap<>();
+    private final Map<String, String> tiposVar     = new HashMap<>();
+    private List<Token> ultimosTokens              = new ArrayList<>();
+    private int         tokenHastaError            = -1;
+
+    public List<Token> getTokens()          { return ultimosTokens; }
+    public int         getTokenHastaError() { return tokenHastaError; }
 
     public String ejecutar(String codigo) {
         StringBuilder salida = new StringBuilder();
+        tokenHastaError = -1;
         try {
             Lexer lexer = new Lexer(codigo);
             List<Token> tokens = lexer.tokenizar();
+            ultimosTokens = tokens;
             int i = 0;
             while (tokens.get(i).tipo != Token.Tipo.EOF) {
                 i = procesarInstruccion(tokens, i, salida);
+                tokenHastaError = i - 1;
             }
         } catch (MSHException e) {
             salida.append("\n⚠ ").append(e.getMessage());
@@ -43,16 +51,20 @@ public class Interprete {
                 throw new ErrorSintaxis("Se esperaba un nombre de variable", t.linea);
 
             if (tokens.get(i + 2).tipo != Token.Tipo.ASIGNAR)
-                throw new ErrorSintaxis("Se esperaba '=' tras el nombre", t.linea);
+                throw new ErrorSintaxis("Se esperaba '$' tras el nombre", t.linea);
+
+            if (tokens.get(i + 3).tipo == Token.Tipo.PUNTO_COMA)
+                throw new ErrorSintaxis("Se esperaba un valor después de '$'", t.linea);
 
             Object valor = evaluarExpresion(tokens, i + 3, t.linea, tipoPalabra);
 
-            // VALIDACIÓN DE TIPO
             validarTipo(tipoPalabra, valor, t.linea);
 
             int fin = saltarExpresion(tokens, i + 3);
             if (tokens.get(fin).tipo != Token.Tipo.PUNTO_COMA)
                 throw new ErrorSintaxis("Se esperaba ';' al final", t.linea);
+
+            declararVariable(nombre.valor, valor, t.linea);
 
             variables.put(nombre.valor, valor);
             tiposVar.put(nombre.valor, tipoPalabra);
@@ -68,8 +80,6 @@ public class Interprete {
             Object valor = evaluarExpresion(tokens, i + 2, t.linea, null);
 
             int fin = i + 2;
-
-            // buscar ')'
             while (fin < tokens.size() && tokens.get(fin).tipo != Token.Tipo.RPAREN) {
                 fin++;
             }
@@ -81,12 +91,11 @@ public class Interprete {
                 throw new ErrorSintaxis("Se esperaba ';' al final", t.linea);
 
             out.append(valor).append("\n");
-
             return fin + 2;
         }
 
         // ───── REASIGNACIÓN ─────
-        if (t.tipo == Token.Tipo.IDENTIFICADOR && tokens.get(i+1).tipo == Token.Tipo.ASIGNAR) {
+        if (t.tipo == Token.Tipo.IDENTIFICADOR && tokens.get(i + 1).tipo == Token.Tipo.ASIGNAR) {
 
             if (!variables.containsKey(t.valor))
                 throw new ErrorVariableNoDeclarada(t.valor, t.linea);
@@ -94,7 +103,6 @@ public class Interprete {
             String tipo = tiposVar.get(t.valor);
             Object valor = evaluarExpresion(tokens, i + 2, t.linea, tipo);
 
-            // VALIDACIÓN DE TIPO
             validarTipo(tipo, valor, t.linea);
 
             int fin = saltarExpresion(tokens, i + 2);
@@ -108,25 +116,42 @@ public class Interprete {
         throw new ErrorSintaxis("Instrucción no reconocida: '" + t.valor + "'", t.linea);
     }
 
-    // ───── EVALUAR EXPRESIÓN ─────
-    private Object evaluarExpresion(List<Token> tokens, int i, int linea, String tipo) throws MSHException {
-        Object izq = evaluarAtomo(tokens, i, linea, tipo);
-        int sig = i + 1;
-
-        if (sig < tokens.size()) {
-            Token op = tokens.get(sig);
-            if (op.tipo == Token.Tipo.SUMA || op.tipo == Token.Tipo.RESTA
-                    || op.tipo == Token.Tipo.MULT || op.tipo == Token.Tipo.DIV
-                    || op.tipo == Token.Tipo.CONCAT) {
-
-                Object der = evaluarAtomo(tokens, sig + 1, linea, tipo);
-                return aplicarOp(izq, op, der, linea);
-            }
-        }
-        return izq;
+    public void declararVariable(String nombre, Object valor, int linea) throws MSHException {
+        Object existente = variables.putIfAbsent(nombre, valor);
+        if (existente != null)
+            throw new ErrorSintaxis("La variable '" + nombre + "' ya fue declarada", linea);
     }
 
-    // ───── EVALUAR ÁTOMO ─────
+    private Object evaluarExpresion(List<Token> tokens, int i, int linea, String tipo) throws MSHException {
+        Object resultado = evaluarAtomo(tokens, i, linea, tipo);
+        int pos = i + 1;
+
+        while (pos < tokens.size()) {
+            Token op = tokens.get(pos);
+
+            if (op.tipo != Token.Tipo.SUMA  &&
+                op.tipo != Token.Tipo.RESTA  &&
+                op.tipo != Token.Tipo.MULT   &&
+                op.tipo != Token.Tipo.DIV    &&
+                op.tipo != Token.Tipo.CONCAT) {
+                break;
+            }
+
+            if (pos + 1 >= tokens.size() ||
+                tokens.get(pos + 1).tipo == Token.Tipo.PUNTO_COMA ||
+                tokens.get(pos + 1).tipo == Token.Tipo.RPAREN) {
+                throw new ErrorSintaxis(
+                    "Se esperaba un valor después del operador '" + op.valor + "'", linea);
+            }
+
+            Object der = evaluarAtomo(tokens, pos + 1, linea, tipo);
+            resultado = aplicarOp(resultado, op, der, linea);
+            pos += 2;
+        }
+
+        return resultado;
+    }
+
     private Object evaluarAtomo(List<Token> tokens, int i, int linea, String tipo) throws MSHException {
         Token t = tokens.get(i);
 
@@ -137,11 +162,9 @@ public class Interprete {
 
             case IDENTIFICADOR -> {
                 if (!variables.containsKey(t.valor)) {
-
-                    // MEJOR MENSAJE SEGÚN CONTEXTO
                     if (tipo != null) {
                         switch (tipo) {
-                            case "obi" -> throw new ErrorObi(
+                            case "obi"   -> throw new ErrorObi(
                                     "Se esperaba un entero pero se encontró '" + t.valor + "'", linea);
                             case "anaki" -> throw new ErrorAnaki(
                                     "Se esperaba un decimal pero se encontró '" + t.valor + "'", linea);
@@ -149,10 +172,8 @@ public class Interprete {
                                     "Se esperaba texto pero se encontró '" + t.valor + "'", linea);
                         }
                     }
-
                     throw new ErrorVariableNoDeclarada(t.valor, linea);
                 }
-
                 yield variables.get(t.valor);
             }
 
@@ -160,7 +181,6 @@ public class Interprete {
         };
     }
 
-    // ───── OPERACIONES ─────
     private Object aplicarOp(Object izq, Token op, Object der, int linea) throws MSHException {
 
         if (izq instanceof Obi a && der instanceof Obi b) {
@@ -169,7 +189,8 @@ public class Interprete {
                 case RESTA -> Operaciones.restarObi(a, b, linea);
                 case MULT  -> Operaciones.multiplicarObi(a, b, linea);
                 case DIV   -> Operaciones.dividirObi(a, b, linea);
-                default    -> throw new ErrorOperacion("Operación '" + op.valor + "' no válida para obi", linea);
+                default    -> throw new ErrorOperacion(
+                        "Operación '" + op.valor + "' no válida para obi", linea);
             };
         }
 
@@ -179,21 +200,20 @@ public class Interprete {
                 case RESTA -> Operaciones.restarAnaki(a, b, linea);
                 case MULT  -> Operaciones.multiplicarAnaki(a, b, linea);
                 case DIV   -> Operaciones.dividirAnaki(a, b, linea);
-                default    -> throw new ErrorOperacion("Operación '" + op.valor + "' no válida para anaki", linea);
+                default    -> throw new ErrorOperacion(
+                        "Operación '" + op.valor + "' no válida para anaki", linea);
             };
         }
 
         if (izq instanceof Padme a && der instanceof Padme b) {
             if (op.tipo == Token.Tipo.CONCAT)
                 return Operaciones.concatenarPadme(a, b, linea);
-
-            throw new ErrorOperacion("padme solo admite '&'", linea);
+            throw new ErrorOperacion("padme solo admite '%'", linea);
         }
 
         throw new ErrorOperacion("Tipos incompatibles en la operación", linea);
     }
 
-    // ───── VALIDACIÓN DE TIPOS ─────
     private void validarTipo(String tipo, Object valor, int linea) throws MSHException {
         switch (tipo) {
             case "obi" -> {
@@ -211,7 +231,6 @@ public class Interprete {
         }
     }
 
-    // ───── SALTAR EXPRESIÓN ─────
     private int saltarExpresion(List<Token> tokens, int i) {
         while (i < tokens.size()
                 && tokens.get(i).tipo != Token.Tipo.PUNTO_COMA

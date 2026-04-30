@@ -12,7 +12,7 @@ public class MSHException extends Exception {
 
     public static class ErrorSintaxis extends MSHException {
         public ErrorSintaxis(String detalle, int linea) {
-            super("Error de sintaxis: " + detalle, linea);
+            super("Error: " + detalle, linea);
         }
     }
 
