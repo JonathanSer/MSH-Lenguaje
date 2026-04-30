@@ -371,7 +371,7 @@ public class Interfaz extends JFrame {
 
     private Color colorLexema(Token.Tipo tipo) {
         return switch (tipo) {
-            case OBI, ANAKI, PADME, IMPRIMIR              -> VIOLETA;
+            case OBI, ANAKI, PADME, IMPRIMIR               -> VIOLETA;
             case IDENTIFICADOR                             -> TEXTO_CLARO;
             case NUMERO_ENTERO, NUMERO_DECIMAL             -> new Color(100, 210, 255);
             case CADENA                                    -> new Color(200, 160, 90);
