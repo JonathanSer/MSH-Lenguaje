@@ -9,6 +9,8 @@ public class Token {
         ASIGNAR,                 // =
         SUMA, RESTA, MULT, DIV, CONCAT,  // + - * / &
         LPAREN, RPAREN, PUNTO_COMA,
+        COMENTARIO,        // Comentarios
+        TEXTO_COMENTARIO,
         EOF, DESCONOCIDO
     }
 

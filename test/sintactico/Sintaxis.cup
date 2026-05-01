@@ -1,0 +1,173 @@
+package sintactico;
+
+import java_cup.runtime.*;
+import lexico.*;
+import java.util.*;
+
+/* ── parser code ── */
+parser code {:
+    public static Map<String, Object> variables = new HashMap<>();
+    public static Map<String, String>  tipos     = new HashMap<>();
+
+    public void report_error(String message, Object info) {
+        System.err.println("Error sintáctico: " + message);
+    }
+
+    public void report_fatal_error(String message, Object info) throws Exception {
+        throw new Exception("Error fatal: " + message);
+    }
+:}
+
+/* ── Terminales ── */
+terminal T_ABI, T_ANAKI, T_PADME;
+terminal T_IMPRIMIR;
+terminal MAS, MENOS, POR, DIV, CONCAT;
+terminal IGUAL, PCOMA, PARIZQ, PARDER;
+terminal Integer ENTERO;
+terminal Double  DOUBLE;
+terminal String  CADENA, ID;
+
+/* ── No terminales ── */
+non terminal Object  programa, lista_sentencias, sentencia;
+non terminal Object  declaracion, asignacion, impresion;
+non terminal Object  expresion, termino, factor;
+
+/* ── Precedencia (de menor a mayor) ── */
+precedence left MAS, MENOS, CONCAT;
+precedence left POR, DIV;
+
+start with programa;
+
+/*           GRAMÁTICA              */
+programa ::= lista_sentencias;
+
+lista_sentencias ::=
+      lista_sentencias sentencia
+    | sentencia
+    ;
+
+sentencia ::=
+      declaracion PCOMA
+    | asignacion  PCOMA
+    | impresion   PCOMA
+    ;
+
+/* ── Declaraciones ── */
+declaracion ::=
+    T_ABI ID:id IGUAL expresion:e
+    {:
+        if(!(e instanceof Integer))
+            throw new Exception("Error de tipo: abi requiere entero, variable: " + id);
+        parser.variables.put(id, e);
+        parser.tipos.put(id, "abi");
+        RESULT = e;
+    :}
+    |
+    T_ANAKI ID:id IGUAL expresion:e
+    {:
+        double val = (e instanceof Integer) ? ((Integer)e).doubleValue() : (Double)e;
+        parser.variables.put(id, val);
+        parser.tipos.put(id, "anaki");
+        RESULT = val;
+    :}
+    |
+    T_PADME ID:id IGUAL expresion:e
+    {:
+        parser.variables.put(id, e.toString());
+        parser.tipos.put(id, "padme");
+        RESULT = e.toString();
+    :}
+    ;
+
+/* ── Asignación ── */
+asignacion ::=
+    ID:id IGUAL expresion:e
+    {:
+        if(!parser.variables.containsKey(id))
+            throw new Exception("Variable no declarada: " + id);
+        String tipo = parser.tipos.get(id);
+        Object val  = e;
+        if(tipo.equals("abi") && !(e instanceof Integer))
+            throw new Exception("Error de tipo: " + id + " es abi (entero)");
+        if(tipo.equals("anaki"))
+            val = (e instanceof Integer) ? ((Integer)e).doubleValue() : (Double)e;
+        if(tipo.equals("padme"))
+            val = e.toString();
+        parser.variables.put(id, val);
+        RESULT = val;
+    :}
+    ;
+
+/* ── Impresión ── */
+impresion ::=
+    T_IMPRIMIR PARIZQ expresion:e PARDER
+    {:
+        System.out.println(e);
+        RESULT = e;
+    :}
+    ;
+
+/* ── Expresiones ── */
+expresion ::=
+      expresion:a MAS termino:b
+      {:
+          if(a instanceof Integer && b instanceof Integer)
+              RESULT = (Integer)a + (Integer)b;
+          else {
+              double da = (a instanceof Integer) ? ((Integer)a).doubleValue() : (Double)a;
+              double db = (b instanceof Integer) ? ((Integer)b).doubleValue() : (Double)b;
+              RESULT = da + db;
+          }
+      :}
+    | expresion:a MENOS termino:b
+      {:
+          if(a instanceof Integer && b instanceof Integer)
+              RESULT = (Integer)a - (Integer)b;
+          else {
+              double da = (a instanceof Integer) ? ((Integer)a).doubleValue() : (Double)a;
+              double db = (b instanceof Integer) ? ((Integer)b).doubleValue() : (Double)b;
+              RESULT = da - db;
+          }
+      :}
+    | expresion:a CONCAT termino:b
+      {: RESULT = a.toString() + b.toString(); :}
+    | termino:t
+      {: RESULT = t; :}
+    ;
+
+/* ── Términos ── */
+termino ::=
+      termino:a POR factor:b
+      {:
+          if(a instanceof Integer && b instanceof Integer)
+              RESULT = (Integer)a * (Integer)b;
+          else {
+              double da = (a instanceof Integer) ? ((Integer)a).doubleValue() : (Double)a;
+              double db = (b instanceof Integer) ? ((Integer)b).doubleValue() : (Double)b;
+              RESULT = da * db;
+          }
+      :}
+    | termino:a DIV factor:b
+      {:
+          double da = (a instanceof Integer) ? ((Integer)a).doubleValue() : (Double)a;
+          double db = (b instanceof Integer) ? ((Integer)b).doubleValue() : (Double)b;
+          if(db == 0.0) throw new Exception("Error: división entre cero");
+          RESULT = da / db;
+      :}
+    | factor:f
+      {: RESULT = f; :}
+    ;
+
+/* ── Factores ── */
+factor ::=
+      ENTERO:n           {: RESULT = n; :}
+    | DOUBLE:d           {: RESULT = d; :}
+    | CADENA:s           {: RESULT = s; :}
+    | ID:id
+      {:
+          if(!parser.variables.containsKey(id))
+              throw new Exception("Variable no declarada: " + id);
+          RESULT = parser.variables.get(id);
+      :}
+    | PARIZQ expresion:e PARDER {: RESULT = e; :}
+    ;

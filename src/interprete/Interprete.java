@@ -113,6 +113,15 @@ public class Interprete {
             return fin + 1;
         }
 
+        // ───── COMENTARIO ─────
+        if (t.tipo == Token.Tipo.COMENTARIO) {
+            int siguiente = i + 1;
+            // si el siguiente token es el texto del comentario, saltarlo también
+            if (siguiente < tokens.size() && tokens.get(siguiente).tipo == Token.Tipo.TEXTO_COMENTARIO)
+                return siguiente + 1;
+            return siguiente;
+        }
+        
         throw new ErrorSintaxis("Instrucción no reconocida: '" + t.valor + "'", t.linea);
     }
 

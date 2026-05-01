@@ -24,8 +24,23 @@ public class Lexer {
             if (c == '\n') { linea++; pos++; continue; }
             if (Character.isWhitespace(c)) { pos++; continue; }
 
+            /*
             if (c == '@') {
                 while (pos < codigo.length() && codigo.charAt(pos) != '\n') pos++;
+                continue;
+            }
+            */
+            
+            if (c == '@') {
+                int lineaInicio = linea;
+                pos++; // saltar el '@'
+                tokens.add(new Token(Token.Tipo.COMENTARIO, "@", lineaInicio)); // token para '@'
+                StringBuilder sb = new StringBuilder();
+                while (pos < codigo.length() && codigo.charAt(pos) != '\n')
+                    sb.append(codigo.charAt(pos++));
+                String texto = sb.toString().trim();
+                if (!texto.isEmpty())
+                    tokens.add(new Token(Token.Tipo.TEXTO_COMENTARIO, texto, lineaInicio)); // token para el texto
                 continue;
             }
 

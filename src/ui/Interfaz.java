@@ -365,6 +365,8 @@ public class Interfaz extends JFrame {
             case LPAREN         -> "paréntesis abre";
             case RPAREN         -> "paréntesis cierra";
             case PUNTO_COMA     -> "fin de instrucción  (;)";
+            case COMENTARIO         -> "comentario  (@)";
+            case TEXTO_COMENTARIO   -> "texto de comentario";
             default             -> t.tipo.name().toLowerCase();
         };
     }
@@ -377,6 +379,8 @@ public class Interfaz extends JFrame {
             case CADENA                                    -> new Color(200, 160, 90);
             case ASIGNAR, SUMA, RESTA, MULT, DIV,
                  CONCAT, LPAREN, RPAREN, PUNTO_COMA        -> NARANJA;
+            case COMENTARIO                                -> new Color(150, 100, 200);
+            case TEXTO_COMENTARIO                          -> new Color(100, 100, 100);
             default                                        -> TEXTO_CLARO;
         };
     }
@@ -420,13 +424,15 @@ public class Interfaz extends JFrame {
             case LPAREN         -> "\\(";
             case RPAREN         -> "\\)";
             case PUNTO_COMA     -> ";";
+            case COMENTARIO         -> "@";
+            case TEXTO_COMENTARIO   -> ".*";
             default             -> "-";
         };
     }
 
     private boolean esReservada(Token.Tipo tipo) {
         return switch (tipo) {
-            case OBI, ANAKI, PADME, IMPRIMIR,ASIGNAR,SUMA,RESTA,MULT,DIV,CONCAT,LPAREN,RPAREN, PUNTO_COMA -> true;
+            case OBI, ANAKI, PADME, IMPRIMIR,ASIGNAR,SUMA,RESTA,MULT,DIV,CONCAT,LPAREN,RPAREN, PUNTO_COMA, COMENTARIO  -> true;
             default -> false;
         };
     }
