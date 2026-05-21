@@ -11,6 +11,8 @@ public class Token {
         LPAREN, RPAREN, PUNTO_COMA,
         COMENTARIO,        // Comentarios
         TEXTO_COMENTARIO,
+        IF, ENTONCES, FINSI,   // ← nuevos: if, entonces, finsi
+        MAYOR, MENOR, IGUAL,   // ← operadores de comparación
         EOF, DESCONOCIDO
     }
 

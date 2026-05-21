@@ -21,6 +21,7 @@ public class Interprete {
     public List<Token> getTokens()          { return ultimosTokens; }
     public int         getTokenHastaError() { return tokenHastaError; }
 
+    /*
     public String ejecutar(String codigo) {
         StringBuilder salida = new StringBuilder();
         tokenHastaError = -1;
@@ -37,13 +38,99 @@ public class Interprete {
             salida.append("\n⚠ ").append(e.getMessage());
         }
         return salida.toString();
+    }*/
+    public String ejecutar(String codigo) {
+        StringBuilder salida = new StringBuilder();
+        tokenHastaError = -1;
+        try {
+            Lexer lexer = new Lexer(codigo);
+            List<Token> tokens = lexer.tokenizar();
+            ultimosTokens = tokens;
+            int i = 0;
+            while (tokens.get(i).tipo != Token.Tipo.EOF) {
+                i = procesarInstruccion(tokens, i, salida);
+                tokenHastaError = i - 1;
+            }
+        } catch (MSHException e) {
+            // incluir la categoría en el mensaje de error
+            String categoria = switch (e.getCategoria()) {
+                case LEXICO     -> "Léxico";
+                case SINTACTICO -> "Sintáctico";
+                case SEMANTICO  -> "Semántico";
+                case LOGICO     -> "Lógico";
+            };
+            salida.append("\n⚠ [").append(categoria).append("] ").append(e.getMessage());
+        }
+        return salida.toString();
+    }
+    
+    private boolean evaluarCondicion(Object izq, Token op, Object der, int linea) throws MSHException {
+        if (izq instanceof Obi a && der instanceof Obi b) {
+            return switch (op.tipo) {
+                case MAYOR -> a.getValor() > b.getValor();
+                case MENOR -> a.getValor() < b.getValor();
+                case IGUAL -> a.getValor() == b.getValor();
+                default    -> throw new ErrorSintaxis("Operador de comparación inválido", linea);
+            };
+        }
+        if (izq instanceof Anaki a && der instanceof Anaki b) {
+            return switch (op.tipo) {
+                case MAYOR -> a.getValor().compareTo(b.getValor()) > 0;
+                case MENOR -> a.getValor().compareTo(b.getValor()) < 0;
+                case IGUAL -> a.getValor().compareTo(b.getValor()) == 0;
+                default    -> throw new ErrorSintaxis("Operador de comparación inválido", linea);
+            };
+        }
+        throw new MSHException.ErrorOperacion("Tipos incompatibles en la condición", linea);
     }
 
     private int procesarInstruccion(List<Token> tokens, int i, StringBuilder out) throws MSHException {
         Token t = tokens.get(i);
+        // ───── IF ─────
+        // Sintaxis: si ( identificador mayor|menor|igual valor ) entonces ... finsi
+        if (t.tipo == Token.Tipo.IF) {
+
+            if (tokens.get(i + 1).tipo != Token.Tipo.LPAREN)
+                throw new ErrorSintaxis("Se esperaba '(' después de 'si'", t.linea);
+
+            Token izq = tokens.get(i + 2);
+            Token op  = tokens.get(i + 3);
+            Token der = tokens.get(i + 4);
+
+            if (tokens.get(i + 5).tipo != Token.Tipo.RPAREN)
+                throw new ErrorSintaxis("Se esperaba ')' para cerrar la condición", t.linea);
+
+            if (tokens.get(i + 6).tipo != Token.Tipo.ENTONCES)
+                throw new ErrorSintaxis("Se esperaba 'entonces' después de la condición", t.linea);
+
+            // evaluar condición
+            Object valIzq = evaluarAtomo(tokens, i + 2, t.linea, null);
+            Object valDer = evaluarAtomo(tokens, i + 4, t.linea, null);
+            boolean condicion = evaluarCondicion(valIzq, op, valDer, t.linea);
+
+            // buscar el 'finsi'
+            int j = i + 7;
+            int finSi = -1;
+            while (j < tokens.size()) {
+                if (tokens.get(j).tipo == Token.Tipo.FINSI) { finSi = j; break; }
+                j++;
+            }
+            if (finSi == -1)
+                throw new ErrorSintaxis("Se esperaba 'finsi' para cerrar el bloque", t.linea);
+
+            // ejecutar el cuerpo solo si la condición es verdadera
+            if (condicion) {
+                int k = i + 7;
+                while (k < finSi) {
+                    k = procesarInstruccion(tokens, k, out);
+                }
+            }
+
+            return finSi + 1;
+        }
 
         // ───── DECLARACIÓN ─────
-        if (t.tipo == Token.Tipo.OBI || t.tipo == Token.Tipo.ANAKI || t.tipo == Token.Tipo.PADME) {
+        /*if (t.tipo == Token.Tipo.OBI || t.tipo == Token.Tipo.ANAKI || t.tipo == Token.Tipo.PADME) {
             String tipoPalabra = t.valor;
 
             Token nombre = tokens.get(i + 1);
@@ -69,6 +156,55 @@ public class Interprete {
             variables.put(nombre.valor, valor);
             tiposVar.put(nombre.valor, tipoPalabra);
             return fin + 1;
+        }*/
+        
+        // ───── DECLARACIÓN (nueva gramática: nombre tipo $ valor) ─────
+        if (t.tipo == Token.Tipo.IDENTIFICADOR) {
+            Token siguiente = tokens.get(i + 1);
+
+            // si el siguiente token es un tipo, es una declaración
+            if (siguiente.tipo == Token.Tipo.OBI   ||
+                siguiente.tipo == Token.Tipo.ANAKI ||
+                siguiente.tipo == Token.Tipo.PADME) {
+
+                String tipoPalabra = siguiente.valor;
+                Token nombre = t; // ahora el nombre va PRIMERO
+
+                if (tokens.get(i + 2).tipo != Token.Tipo.ASIGNAR)
+                    throw new ErrorSintaxis("Se esperaba '$' tras el tipo", t.linea);
+
+                if (tokens.get(i + 3).tipo == Token.Tipo.PUNTO_COMA)
+                    throw new ErrorSintaxis("Se esperaba un valor después de '$'", t.linea);
+
+                Object valor = evaluarExpresion(tokens, i + 3, t.linea, tipoPalabra);
+                validarTipo(tipoPalabra, valor, t.linea);
+
+                int fin = saltarExpresion(tokens, i + 3);
+                if (tokens.get(fin).tipo != Token.Tipo.PUNTO_COMA)
+                    throw new ErrorSintaxis("Se esperaba ';' al final", t.linea);
+
+                declararVariable(nombre.valor, valor, t.linea);
+                variables.put(nombre.valor, valor);
+                tiposVar.put(nombre.valor, tipoPalabra);
+                return fin + 1;
+            }
+
+            // si no, es reasignación (como antes)
+            if (tokens.get(i + 1).tipo == Token.Tipo.ASIGNAR) {
+                if (!variables.containsKey(t.valor))
+                    throw new ErrorVariableNoDeclarada(t.valor, t.linea);
+
+                String tipo = tiposVar.get(t.valor);
+                Object valor = evaluarExpresion(tokens, i + 2, t.linea, tipo);
+                validarTipo(tipo, valor, t.linea);
+
+                int fin = saltarExpresion(tokens, i + 2);
+                if (tokens.get(fin).tipo != Token.Tipo.PUNTO_COMA)
+                    throw new ErrorSintaxis("Se esperaba ';'", t.linea);
+
+                variables.put(t.valor, valor);
+                return fin + 1;
+            }
         }
 
         // ───── IMPRIMIR ─────
@@ -95,7 +231,7 @@ public class Interprete {
         }
 
         // ───── REASIGNACIÓN ─────
-        if (t.tipo == Token.Tipo.IDENTIFICADOR && tokens.get(i + 1).tipo == Token.Tipo.ASIGNAR) {
+        /*if (t.tipo == Token.Tipo.IDENTIFICADOR && tokens.get(i + 1).tipo == Token.Tipo.ASIGNAR) {
 
             if (!variables.containsKey(t.valor))
                 throw new ErrorVariableNoDeclarada(t.valor, t.linea);
@@ -111,7 +247,7 @@ public class Interprete {
 
             variables.put(t.valor, valor);
             return fin + 1;
-        }
+        }*/
 
         // ───── COMENTARIO ─────
         if (t.tipo == Token.Tipo.COMENTARIO) {

@@ -126,14 +126,17 @@ public class Interfaz extends JFrame {
         JButton btnEjemplo  = crearBoton("📄 Ejemplo",  new Color(45, 75, 145), Color.WHITE);
         JButton btnLimpiar  = crearBoton("🗑  Limpiar",  new Color(60, 60, 85),  TEXTO_CLARO);
         JButton btnEjecutar = crearBoton("▶  Ejecutar", new Color(30, 125, 55), Color.WHITE);
+        JButton btnGramatica = crearBoton("📖 Gramática", new Color(60, 40, 100), VIOLETA);
 
         btnEjemplo .addActionListener(e -> cargarEjemplo());
         btnLimpiar .addActionListener(e -> limpiarTodo());
         btnEjecutar.addActionListener(e -> ejecutarCodigo());
+        btnGramatica.addActionListener(e -> mostrarGramatica());
 
         barra.add(btnEjemplo);
         barra.add(btnLimpiar);
         barra.add(btnEjecutar);
+        barra.add(btnGramatica);
         return barra;
     }
 
@@ -550,18 +553,16 @@ public class Interfaz extends JFrame {
         editorArea.setText(
             "@ Ejemplo del lenguaje MSH\n" +
             "\n" +
-            "obi x $ 10;\n" +
-            "obi y $ 5;\n" +
+            "x obi $ 10;\n" +
+            "y obi $ 5;\n" +
             "imprimir(x + y);\n" +
-            "imprimir(x - y);\n" +
-            "imprimir(x * y);\n" +
             "\n" +
-            "anaki pi $ 3.14;\n" +
-            "anaki radio $ 2.0;\n" +
+            "pi anaki $ 3.14;\n" +
+            "radio anaki $ 2.0;\n" +
             "imprimir(pi * radio * radio);\n" +
             "\n" +
-            "padme nombre $ \"Ana\";\n" +
-            "padme saludo $ \"Hola, \";\n" +
+            "nombre padme $ \"Ana\";\n" +
+            "saludo padme $ \"Hola, \";\n" +
             "imprimir(saludo % nombre);"
         );
     }
@@ -605,5 +606,57 @@ public class Interfaz extends JFrame {
             @Override public void mouseExited (MouseEvent e) { btn.setBackground(bg); }
         });
         return btn;
+    }
+    
+    private void mostrarGramatica() {
+        limpiarConsola();
+        Color TITULO  = AMARILLO;
+        Color REGLA   = AZUL;
+        Color EJEMPLO = VERDE;
+        Color GRIS    = new Color(130, 130, 150);
+
+        mostrarEnConsola("── Gramática del Lenguaje MSH ──────\n\n", TITULO);
+
+        mostrarEnConsola("  Expresión\n", TITULO);
+        mostrarEnConsola("    expresión  →  átomo  ( operador  átomo )*\n", REGLA);
+        mostrarEnConsola("    átomo      →  identificador | número | cadena\n", REGLA);
+        mostrarEnConsola("    operador   →  +  |  -  |  *  |  /  |  %\n", REGLA);
+        mostrarEnConsola("    Ej: x + y * 2\n\n", EJEMPLO);
+
+        mostrarEnConsola("  Identificador\n", TITULO);
+        mostrarEnConsola("    identificador  →  [a-zA-Z_][a-zA-Z0-9_]*\n", REGLA);
+        mostrarEnConsola("    Ej: x  |  radio  |  nombre_var\n\n", EJEMPLO);
+
+        mostrarEnConsola("  Tipo de dato\n", TITULO);
+        mostrarEnConsola("    tipo  →  obi  |  anaki  |  padme\n", REGLA);
+        mostrarEnConsola("    obi   →  entero     Ej: 10\n", GRIS);
+        mostrarEnConsola("    anaki →  decimal    Ej: 3.14\n", GRIS);
+        mostrarEnConsola("    padme →  texto      Ej: \"Hola\"\n\n", GRIS);
+
+        mostrarEnConsola("  Número\n", TITULO);
+        mostrarEnConsola("    número_entero   →  -?[0-9]+\n", REGLA);
+        mostrarEnConsola("    número_decimal  →  -?[0-9]+\\.[0-9]+\n\n", REGLA);
+
+        mostrarEnConsola("  Declaración\n", TITULO);
+        mostrarEnConsola("    identificador  tipo  $  expresión  ;\n", REGLA);
+        mostrarEnConsola("    Ej: x obi $ 10;\n\n", EJEMPLO);
+
+        mostrarEnConsola("  Reasignación\n", TITULO);
+        mostrarEnConsola("    identificador  $  expresión  ;\n", REGLA);
+        mostrarEnConsola("    Ej: x $ x + 1;\n\n", EJEMPLO);
+
+        mostrarEnConsola("  Imprimir\n", TITULO);
+        mostrarEnConsola("    imprimir ( expresión ) ;\n", REGLA);
+        mostrarEnConsola("    Ej: imprimir(x + y);\n\n", EJEMPLO);
+
+        mostrarEnConsola("  Break / fin de instrucción\n", TITULO);
+        mostrarEnConsola("    break  →  ;\n", REGLA);
+        mostrarEnConsola("    Toda instrucción termina con ;\n\n", GRIS);
+
+        mostrarEnConsola("  Comentario\n", TITULO);
+        mostrarEnConsola("    @  texto libre hasta fin de línea\n", REGLA);
+        mostrarEnConsola("    Ej: @ Esto es un comentario\n\n", EJEMPLO);
+
+        mostrarEnConsola("────────────────────────────────────\n", TITULO);
     }
 }

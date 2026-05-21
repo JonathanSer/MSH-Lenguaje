@@ -114,11 +114,24 @@ public class Lexer {
         while (pos < codigo.length() && (Character.isLetterOrDigit(codigo.charAt(pos)) || codigo.charAt(pos) == '_'))
             sb.append(codigo.charAt(pos++));
         String palabra = sb.toString();
+        /*Token.Tipo tipo = switch (palabra) {
+            case "obi"      -> Token.Tipo.OBI;
+            case "anaki"    -> Token.Tipo.ANAKI;
+            case "padme"    -> Token.Tipo.PADME;
+            case "imprimir" -> Token.Tipo.IMPRIMIR;
+            default         -> Token.Tipo.IDENTIFICADOR;
+        };*/
         Token.Tipo tipo = switch (palabra) {
             case "obi"      -> Token.Tipo.OBI;
             case "anaki"    -> Token.Tipo.ANAKI;
             case "padme"    -> Token.Tipo.PADME;
             case "imprimir" -> Token.Tipo.IMPRIMIR;
+            case "si"       -> Token.Tipo.IF;       // ← "si" en lugar de "if"
+            case "entonces" -> Token.Tipo.ENTONCES;
+            case "finsi"    -> Token.Tipo.FINSI;
+            case "mayor"    -> Token.Tipo.MAYOR;
+            case "menor"    -> Token.Tipo.MENOR;
+            case "igual"    -> Token.Tipo.IGUAL;
             default         -> Token.Tipo.IDENTIFICADOR;
         };
         return new Token(tipo, palabra, lineaInicio);
